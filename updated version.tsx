@@ -8,10 +8,10 @@ import {
   Database, Globe, Calculator, FileSearch, Cpu, Gauge, Award,
   TrendingDown, MoreHorizontal, ExternalLink, Copy, Share2,
   ChevronDown, ChevronUp, LogOut, User, HelpCircle, Mail,
-  Send, Upload, Link, Hash, ArrowRight
+  Send, Upload, Link, Hash, ArrowRight, Key, Shield
 } from 'lucide-react';
 
-const CrewAIDashboardProV9 = () => {
+const CrewAIDashboardProV10 = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionProgress, setExecutionProgress] = useState(0);
@@ -33,6 +33,8 @@ const CrewAIDashboardProV9 = () => {
   const [isRunningCrew, setIsRunningCrew] = useState(false);
   const [crewProgress, setCrewProgress] = useState(0);
   const [crewOutput, setCrewOutput] = useState('');
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationMessage, setConfirmationMessage] = useState('');
   const [realTimeMetrics, setRealTimeMetrics] = useState({
     activeExecutions: 0,
     queuedTasks: 0,
@@ -300,7 +302,8 @@ const CrewAIDashboardProV9 = () => {
     { id: 'crew-goal', label: 'Crew Goal', icon: Target },
     { id: 'execution', label: 'Execution', icon: PlayCircle, badge: isExecuting ? 'Live' : null },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'files', label: 'Files', icon: Folder, badge: files.length }
+    { id: 'files', label: 'Files', icon: Folder, badge: files.length },
+    { id: 'profile', label: 'Profile', icon: UserCircle },
   ];
 
   const cerebrasModels = [
@@ -342,6 +345,14 @@ const CrewAIDashboardProV9 = () => {
     dueDate: ''
   });
 
+  const showSuccessMessage = (message) => {
+    setConfirmationMessage(message);
+    setShowConfirmation(true);
+    setTimeout(() => {
+      setShowConfirmation(false);
+    }, 3000);
+  };
+
   // CRUD Operations for Agents
   const createAgent = () => {
     if (!newAgent.name || !newAgent.role || !newAgent.goal || !newAgent.backstory) {
@@ -350,7 +361,7 @@ const CrewAIDashboardProV9 = () => {
     }
     
     const agent = {
-      id: Math.max(...agents.map(a => a.id)) + 1,
+      id: Math.max(0, ...agents.map(a => a.id)) + 1,
       ...newAgent,
       status: 'idle',
       score: Math.floor(Math.random() * 20) + 80,
@@ -369,6 +380,7 @@ const CrewAIDashboardProV9 = () => {
     setShowCreateAgentModal(false);
     
     addNotification('success', `Agent "${agent.name}" created successfully`);
+    showSuccessMessage('Agent created successfully.');
   };
 
   const editAgent = (agent) => {
@@ -399,6 +411,7 @@ const CrewAIDashboardProV9 = () => {
     setShowEditAgentModal(false);
     setSelectedAgent(null);
     addNotification('success', `Agent "${updatedAgent.name}" updated successfully`);
+    showSuccessMessage('Agent saved successfully.');
   };
 
   const deleteAgent = (id) => {
@@ -406,6 +419,7 @@ const CrewAIDashboardProV9 = () => {
       const agent = agents.find(a => a.id === id);
       setAgents(prev => prev.filter(a => a.id !== id));
       addNotification('warning', `Agent "${agent?.name}" deleted`);
+      showSuccessMessage('Agent deleted successfully.');
     }
   };
 
@@ -414,6 +428,7 @@ const CrewAIDashboardProV9 = () => {
       a.id === agent.id ? { ...a, status: 'active', lastActive: new Date().toISOString() } : a
     ));
     addNotification('info', `Agent "${agent.name}" activated`);
+    showSuccessMessage(`Agent "${agent.name}" is now active.`);
   };
 
   // CRUD Operations for Tasks
@@ -425,7 +440,7 @@ const CrewAIDashboardProV9 = () => {
     
     const selectedAgent = agents.find(a => a.id === parseInt(newTask.agentId));
     const task = {
-      id: Math.max(...tasks.map(t => t.id)) + 1,
+      id: Math.max(0, ...tasks.map(t => t.id)) + 1,
       ...newTask,
       agentId: parseInt(newTask.agentId),
       agentName: selectedAgent?.name || 'Unknown Agent',
@@ -444,6 +459,7 @@ const CrewAIDashboardProV9 = () => {
     setShowCreateTaskModal(false);
     
     addNotification('info', `Task "${task.name}" created and assigned to ${selectedAgent?.name}`);
+    showSuccessMessage('Task created successfully.');
   };
 
   const editTask = (task) => {
@@ -477,6 +493,7 @@ const CrewAIDashboardProV9 = () => {
     setShowEditTaskModal(false);
     setSelectedTask(null);
     addNotification('success', `Task "${updatedTask.name}" updated successfully`);
+    showSuccessMessage('Task saved successfully.');
   };
 
   const deleteTask = (id) => {
@@ -484,6 +501,7 @@ const CrewAIDashboardProV9 = () => {
       const task = tasks.find(t => t.id === id);
       setTasks(prev => prev.filter(t => t.id !== id));
       addNotification('warning', `Task "${task?.name}" deleted`);
+      showSuccessMessage('Task deleted successfully.');
     }
   };
 
@@ -492,11 +510,12 @@ const CrewAIDashboardProV9 = () => {
       t.id === task.id ? { 
         ...t, 
         status: 'in-progress', 
-        progress: Math.min(100, t.progress + 25),
+        progress: Math.min(100, (t.progress || 0) + 25),
         lastUpdated: new Date().toISOString()
       } : t
     ));
     addNotification('info', `Task "${task.name}" started`);
+    showSuccessMessage(`Task "${task.name}" execution started.`);
   };
 
   // Template Operations
@@ -504,9 +523,11 @@ const CrewAIDashboardProV9 = () => {
     addNotification('info', `Loading template "${template.name}"...`);
     
     setTimeout(() => {
-      template.config.agents.forEach((agentConfig, index) => {
+      let maxAgentId = Math.max(0, ...agents.map(a => a.id));
+      template.config.agents.forEach((agentConfig) => {
+        maxAgentId++;
         const newAgent = {
-          id: Math.max(...agents.map(a => a.id)) + index + 1,
+          id: maxAgentId,
           name: agentConfig.name,
           role: agentConfig.role,
           goal: `Execute ${template.name} workflow objectives`,
@@ -527,6 +548,7 @@ const CrewAIDashboardProV9 = () => {
       });
       
       addNotification('success', `Template "${template.name}" applied successfully!`);
+      showSuccessMessage('Template loaded successfully.');
       setActiveTab('agents');
     }, 2000);
   };
@@ -542,6 +564,15 @@ const CrewAIDashboardProV9 = () => {
       f.id === file.id ? { ...f, downloads: f.downloads + 1 } : f
     ));
     addNotification('success', `File "${file.name}" downloaded`);
+  };
+  
+  const deleteFile = (id) => {
+    if (confirm('Are you sure you want to delete this file?')) {
+      const file = files.find(f => f.id === id);
+      setFiles(prev => prev.filter(f => f.id !== id));
+      addNotification('warning', `File "${file?.name}" deleted`);
+      showSuccessMessage('File deleted successfully.');
+    }
   };
 
   const exportAllFiles = () => {
@@ -586,7 +617,7 @@ const CrewAIDashboardProV9 = () => {
     setTimeout(() => {
       setIsRunningCrew(false);
       const newFile = {
-        id: Math.max(...files.map(f => f.id)) + 1,
+        id: Math.max(0, ...files.map(f => f.id)) + 1,
         name: `Crew_Report_${crewTopic.replace(/\s+/g, '_')}.pdf`,
         type: 'report',
         size: '4.2 MB',
@@ -649,7 +680,7 @@ const CrewAIDashboardProV9 = () => {
       }));
       
       const newFile = {
-        id: Math.max(...files.map(f => f.id)) + 1,
+        id: Math.max(0, ...files.map(f => f.id)) + 1,
         name: 'Live_Execution_Report.pdf',
         type: 'report',
         size: '3.2 MB',
@@ -700,11 +731,11 @@ const CrewAIDashboardProV9 = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-700 border-green-200';
+      case 'active': case 'published': return 'bg-green-100 text-green-700 border-green-200';
       case 'busy': return 'bg-orange-100 text-orange-700 border-orange-200';
-      case 'idle': return 'bg-gray-100 text-gray-700 border-gray-200';
-      case 'completed': return 'bg-green-100 text-green-700 border-green-200';
-      case 'in-progress': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'idle': case 'draft': return 'bg-gray-100 text-gray-700 border-gray-200';
+      case 'completed': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'in-progress': return 'bg-indigo-100 text-indigo-700 border-indigo-200';
       case 'pending': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
       case 'failed': return 'bg-red-100 text-red-700 border-red-200';
       default: return 'bg-gray-100 text-gray-700 border-gray-200';
@@ -719,17 +750,17 @@ const CrewAIDashboardProV9 = () => {
   });
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
       {/* Header */}
       <header className="bg-gradient-to-r from-blue-600 to-purple-600 text-white sticky top-0 z-50 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center backdrop-blur-sm">
                 <Bot className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-xl font-bold">CrewAI Dashboard Pro v9</h1>
+                <h1 className="text-xl font-bold">CrewAI Dashboard Pro</h1>
                 <p className="text-blue-100 text-sm">Enterprise Multi-Agent Workflow Manager</p>
               </div>
             </div>
@@ -751,7 +782,7 @@ const CrewAIDashboardProV9 = () => {
                 >
                   <Bell className="w-5 h-5" />
                   {notifications.filter(n => !n.read).length > 0 && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full text-xs flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-xs flex items-center justify-center text-white">
                       {notifications.filter(n => !n.read).length}
                     </span>
                   )}
@@ -759,10 +790,10 @@ const CrewAIDashboardProV9 = () => {
                 
                 {/* Notifications Dropdown */}
                 {showNotifications && (
-                  <div className="absolute right-0 top-12 w-80 bg-background rounded-lg shadow-xl border border-border z-50">
-                    <div className="p-4 border-b border-border">
+                  <div className="absolute right-0 top-12 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                    <div className="p-4 border-b border-gray-200">
                       <div className="flex items-center justify-between">
-                        <h3 className="font-semibold text-foreground">Notifications</h3>
+                        <h3 className="font-semibold text-gray-800">Notifications</h3>
                         <button 
                           onClick={clearAllNotifications}
                           className="text-sm text-blue-600 hover:text-blue-700"
@@ -773,16 +804,16 @@ const CrewAIDashboardProV9 = () => {
                     </div>
                     <div className="max-h-96 overflow-y-auto">
                       {notifications.length === 0 ? (
-                        <div className="p-4 text-center text-muted-foreground">
-                          <Bell className="w-8 h-8 mx-auto mb-2 text-muted" />
-                          <p>No notifications</p>
+                        <div className="p-4 text-center text-gray-500">
+                          <Bell className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                          <p>No new notifications</p>
                         </div>
                       ) : (
                         notifications.map((notification) => (
                           <div 
                             key={notification.id}
                             onClick={() => markNotificationAsRead(notification.id)}
-                            className={`p-4 border-b border-border hover:bg-muted cursor-pointer ${
+                            className={`p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer ${
                               !notification.read ? 'bg-blue-50' : ''
                             }`}
                           >
@@ -794,10 +825,10 @@ const CrewAIDashboardProV9 = () => {
                                 'bg-red-400'
                               }`}></div>
                               <div className="flex-1">
-                                <p className={`text-sm ${!notification.read ? 'font-medium' : ''} text-foreground`}>
+                                <p className={`text-sm ${!notification.read ? 'font-medium' : ''} text-gray-800`}>
                                   {notification.message}
                                 </p>
-                                <p className="text-xs text-muted-foreground mt-1">{notification.time}</p>
+                                <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
                               </div>
                             </div>
                           </div>
@@ -811,50 +842,11 @@ const CrewAIDashboardProV9 = () => {
               {/* Profile Button */}
               <div className="relative">
                 <button 
-                  onClick={() => {
-                    setShowProfileMenu(!showProfileMenu);
-                    setShowNotifications(false);
-                  }}
+                  onClick={() => setActiveTab('profile')}
                   className="p-2 hover:bg-white hover:bg-opacity-10 rounded-lg transition-colors"
                 >
                   <UserCircle className="w-5 h-5" />
                 </button>
-                
-                {/* Profile Dropdown */}
-                {showProfileMenu && (
-                  <div className="absolute right-0 top-12 w-64 bg-background rounded-lg shadow-xl border border-border z-50">
-                    <div className="p-4 border-b border-border">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">Admin User</p>
-                          <p className="text-sm text-muted-foreground">admin@crewai.com</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="p-2">
-                      <button className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted rounded-lg flex items-center space-x-2">
-                        <User className="w-4 h-4" />
-                        <span>Profile Settings</span>
-                      </button>
-                      <button className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted rounded-lg flex items-center space-x-2">
-                        <Settings className="w-4 h-4" />
-                        <span>Preferences</span>
-                      </button>
-                      <button className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted rounded-lg flex items-center space-x-2">
-                        <HelpCircle className="w-4 h-4" />
-                        <span>Help & Support</span>
-                      </button>
-                      <hr className="my-2 border-border" />
-                      <button className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center space-x-2">
-                        <LogOut className="w-4 h-4" />
-                        <span>Sign Out</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Mobile Menu Button */}
@@ -870,8 +862,8 @@ const CrewAIDashboardProV9 = () => {
       </header>
 
       {/* Navigation Tabs */}
-      <nav className="bg-background border-b border-border sticky top-20 z-40">
-        <div className="max-w-7xl mx-auto px-4">
+      <nav className="bg-white border-b border-gray-200 sticky top-[76px] z-40">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`flex space-x-1 overflow-x-auto ${mobileMenuOpen ? 'flex-col md:flex-row space-y-1 md:space-y-0' : ''}`}>
             {navigationItems.map((item) => (
               <button
@@ -885,7 +877,7 @@ const CrewAIDashboardProV9 = () => {
                 className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
                   activeTab === item.id
                     ? 'border-blue-500 text-blue-600 bg-blue-50'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border hover:bg-muted'
+                    : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 <item.icon className="w-4 h-4" />
@@ -904,7 +896,7 @@ const CrewAIDashboardProV9 = () => {
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex gap-6">
           <div className="flex-1">
             
@@ -912,45 +904,43 @@ const CrewAIDashboardProV9 = () => {
             {activeTab === 'dashboard' && (
               <div className="space-y-6">
                 {/* Welcome Card */}
-                <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl p-6 shadow-lg">
+                <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl p-8 shadow-lg">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-2xl font-bold mb-2">Welcome to CrewAI Dashboard Pro v9</h2>
-                      <p className="text-blue-100 mb-4">
-                        Complete multi-agent AI workflow management with advanced functionality and real-time monitoring.
+                      <h2 className="text-3xl font-bold mb-2">Welcome to CrewAI Dashboard Pro</h2>
+                      <p className="text-blue-100 mb-6 max-w-2xl">
+                        Your central hub for creating, managing, and monitoring sophisticated multi-agent AI workflows. Leverage the power of collaborative AI to automate complex tasks.
                       </p>
-                      <div className="flex space-x-4">
+                      <div className="flex flex-wrap gap-4">
                         <button 
                           onClick={() => setShowCreateAgentModal(true)}
-                          className="bg-white text-blue-600 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center space-x-2"
+                          className="bg-white text-blue-600 px-5 py-2.5 rounded-lg font-semibold hover:bg-gray-50 transition-colors flex items-center space-x-2 shadow"
                         >
-                          <Plus className="w-4 h-4" />
+                          <Plus className="w-5 h-5" />
                           <span>Create Agent</span>
                         </button>
                         <button 
                           onClick={() => setActiveTab('crew-goal')}
-                          className="bg-white bg-opacity-20 text-white px-4 py-2 rounded-lg font-medium hover:bg-opacity-30 transition-colors"
+                          className="bg-white bg-opacity-20 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-opacity-30 transition-colors flex items-center space-x-2"
                         >
-                          Crew Goal Assignment
+                           <Target className="w-5 h-5" />
+                          <span>Create Goal</span>
                         </button>
                       </div>
                     </div>
                     <div className="hidden lg:block">
-                      <div className="text-right">
-                        <div className="text-3xl font-bold">v9</div>
-                        <div className="text-sm text-blue-200">Latest Version</div>
-                      </div>
+                      <Bot className="w-32 h-32 text-white opacity-20" />
                     </div>
                   </div>
                 </div>
 
                 {/* Live Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="bg-background border border-border rounded-lg p-6 shadow-sm">
+                  <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Active Agents</p>
-                        <p className="text-2xl font-bold text-foreground">{agents.length}</p>
+                        <p className="text-sm text-gray-500">Active Agents</p>
+                        <p className="text-3xl font-bold text-gray-800">{agents.length}</p>
                         <p className="text-xs text-green-600 flex items-center mt-1">
                           <ArrowUp className="w-3 h-3 mr-1" />
                           +2 this week
@@ -962,11 +952,11 @@ const CrewAIDashboardProV9 = () => {
                     </div>
                   </div>
 
-                  <div className="bg-background border border-border rounded-lg p-6 shadow-sm">
+                  <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Active Tasks</p>
-                        <p className="text-2xl font-bold text-foreground">{tasks.filter(t => t.status !== 'completed').length}</p>
+                        <p className="text-sm text-gray-500">Active Tasks</p>
+                        <p className="text-3xl font-bold text-gray-800">{tasks.filter(t => t.status !== 'completed').length}</p>
                         <p className="text-xs text-orange-600 flex items-center mt-1">
                           <Clock className="w-3 h-3 mr-1" />
                           {realTimeMetrics.queuedTasks} queued
@@ -978,11 +968,11 @@ const CrewAIDashboardProV9 = () => {
                     </div>
                   </div>
 
-                  <div className="bg-background border border-border rounded-lg p-6 shadow-sm">
+                  <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Success Rate</p>
-                        <p className="text-2xl font-bold text-foreground">{realTimeMetrics.successRate.toFixed(1)}%</p>
+                        <p className="text-sm text-gray-500">Success Rate</p>
+                        <p className="text-3xl font-bold text-gray-800">{realTimeMetrics.successRate.toFixed(1)}%</p>
                         <p className="text-xs text-green-600 flex items-center mt-1">
                           <TrendingUp className="w-3 h-3 mr-1" />
                           +1.2% today
@@ -994,11 +984,11 @@ const CrewAIDashboardProV9 = () => {
                     </div>
                   </div>
 
-                  <div className="bg-background border border-border rounded-lg p-6 shadow-sm">
+                  <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Cost Today</p>
-                        <p className="text-2xl font-bold text-foreground">${realTimeMetrics.costToday.toFixed(2)}</p>
+                        <p className="text-sm text-gray-500">Cost Today</p>
+                        <p className="text-3xl font-bold text-gray-800">${realTimeMetrics.costToday.toFixed(2)}</p>
                         <p className="text-xs text-blue-600 flex items-center mt-1">
                           <DollarSign className="w-3 h-3 mr-1" />
                           {realTimeMetrics.totalTokensToday.toLocaleString()} tokens
@@ -1011,76 +1001,76 @@ const CrewAIDashboardProV9 = () => {
                   </div>
                 </div>
 
-                {/* Quick Actions */}
-                <div className="bg-background border border-border rounded-lg p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <button 
-                      onClick={() => setShowCreateAgentModal(true)}
-                      className="flex items-center space-x-3 p-4 border border-border rounded-lg hover:bg-muted transition-colors"
-                    >
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Bot className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-medium text-foreground">Create Agent</p>
-                        <p className="text-sm text-muted-foreground">Add new AI agent</p>
-                      </div>
-                    </button>
+                {/* Quick Actions & Activity Feed */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-1 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
+                        <div className="space-y-3">
+                            <button 
+                            onClick={() => setShowCreateAgentModal(true)}
+                            className="w-full flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-blue-400 transition-colors"
+                            >
+                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <Bot className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div className="text-left">
+                                <p className="font-medium text-gray-800">Create Agent</p>
+                                <p className="text-sm text-gray-500">Add a new AI agent</p>
+                            </div>
+                            </button>
 
-                    <button 
-                      onClick={() => setShowCreateTaskModal(true)}
-                      className="flex items-center space-x-3 p-4 border border-border rounded-lg hover:bg-muted transition-colors"
-                    >
-                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <Plus className="w-5 h-5 text-green-600" />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-medium text-foreground">Create Task</p>
-                        <p className="text-sm text-muted-foreground">Assign new task</p>
-                      </div>
-                    </button>
+                            <button 
+                            onClick={() => setShowCreateTaskModal(true)}
+                            className="w-full flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-green-400 transition-colors"
+                            >
+                            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                <Plus className="w-5 h-5 text-green-600" />
+                            </div>
+                            <div className="text-left">
+                                <p className="font-medium text-gray-800">Create Task</p>
+                                <p className="text-sm text-gray-500">Assign a new task</p>
+                            </div>
+                            </button>
 
-                    <button 
-                      onClick={() => setActiveTab('execution')}
-                      className="flex items-center space-x-3 p-4 border border-border rounded-lg hover:bg-muted transition-colors"
-                    >
-                      <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                        <PlayCircle className="w-5 h-5 text-purple-600" />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-medium text-foreground">Start Execution</p>
-                        <p className="text-sm text-muted-foreground">Run workflow</p>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Real-time Activity Feed */}
-                <div className="bg-background border border-border rounded-lg p-6 shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-foreground">Real-time Activity</h3>
-                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                      <span>Live</span>
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    {notifications.slice(0, 5).map((notification) => (
-                      <div key={notification.id} className="flex items-start space-x-3 p-3 bg-muted rounded-lg">
-                        <div className={`w-2 h-2 rounded-full mt-2 ${
-                          notification.type === 'success' ? 'bg-green-400' :
-                          notification.type === 'info' ? 'bg-blue-400' :
-                          notification.type === 'warning' ? 'bg-orange-400' :
-                          'bg-red-400'
-                        }`}></div>
-                        <div className="flex-1">
-                          <p className="text-sm text-foreground">{notification.message}</p>
-                          <p className="text-xs text-muted-foreground">{notification.time}</p>
+                            <button 
+                            onClick={() => setActiveTab('execution')}
+                            className="w-full flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-purple-400 transition-colors"
+                            >
+                            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <PlayCircle className="w-5 h-5 text-purple-600" />
+                            </div>
+                            <div className="text-left">
+                                <p className="font-medium text-gray-800">Start Execution</p>
+                                <p className="text-sm text-gray-500">Run a workflow</p>
+                            </div>
+                            </button>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                    </div>
+                    <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-gray-800">Real-time Activity</h3>
+                            <div className="flex items-center space-x-2 text-sm text-gray-500">
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                            <span>Live</span>
+                            </div>
+                        </div>
+                        <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
+                            {notifications.slice(0, 5).map((notification) => (
+                            <div key={notification.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                                <div className={`w-2 h-2 rounded-full mt-2 ${
+                                notification.type === 'success' ? 'bg-green-400' :
+                                notification.type === 'info' ? 'bg-blue-400' :
+                                notification.type === 'warning' ? 'bg-orange-400' :
+                                'bg-red-400'
+                                }`}></div>
+                                <div className="flex-1">
+                                <p className="text-sm text-gray-800">{notification.message}</p>
+                                <p className="text-xs text-gray-500">{notification.time}</p>
+                                </div>
+                            </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
               </div>
             )}
@@ -1090,8 +1080,8 @@ const CrewAIDashboardProV9 = () => {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-foreground">AI Agents</h2>
-                    <p className="text-muted-foreground">Manage your intelligent agents and their configurations</p>
+                    <h2 className="text-2xl font-bold text-gray-800">AI Agents</h2>
+                    <p className="text-gray-500">Manage your intelligent agents and their configurations</p>
                   </div>
                   <button 
                     onClick={() => setShowCreateAgentModal(true)}
@@ -1104,15 +1094,15 @@ const CrewAIDashboardProV9 = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {agents.map((agent) => (
-                    <div key={agent.id} className="bg-background border border-border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <div key={agent.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center space-x-3">
                           <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                             <Bot className="w-6 h-6 text-blue-600" />
                           </div>
                           <div>
-                            <h3 className="font-semibold text-foreground">{agent.name}</h3>
-                            <p className="text-sm text-muted-foreground">{agent.role}</p>
+                            <h3 className="font-semibold text-gray-800">{agent.name}</h3>
+                            <p className="text-sm text-gray-500">{agent.role}</p>
                           </div>
                         </div>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(agent.status)}`}>
@@ -1120,26 +1110,26 @@ const CrewAIDashboardProV9 = () => {
                         </span>
                       </div>
 
-                      <div className="space-y-3 mb-4">
+                      <div className="space-y-3 mb-4 flex-grow">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Performance Score</span>
-                          <span className="font-medium text-foreground">{agent.score}%</span>
+                          <span className="text-gray-500">Performance Score</span>
+                          <span className="font-medium text-gray-800">{agent.score}%</span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Tasks Completed</span>
-                          <span className="font-medium text-foreground">{agent.tasks}</span>
+                          <span className="text-gray-500">Tasks Completed</span>
+                          <span className="font-medium text-gray-800">{agent.tasks}</span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Model</span>
-                          <span className="font-medium text-foreground">{agent.model}</span>
+                          <span className="text-gray-500">Model</span>
+                          <span className="font-medium text-gray-800">{agent.model}</span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Avg Response</span>
-                          <span className="font-medium text-foreground">{agent.avgResponseTime}</span>
+                          <span className="text-gray-500">Avg Response</span>
+                          <span className="font-medium text-gray-800">{agent.avgResponseTime}</span>
                         </div>
                       </div>
 
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-2 mt-auto">
                         <button 
                           onClick={() => editAgent(agent)}
                           className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center space-x-1"
@@ -1172,8 +1162,8 @@ const CrewAIDashboardProV9 = () => {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-foreground">Tasks</h2>
-                    <p className="text-muted-foreground">Manage and monitor task execution</p>
+                    <h2 className="text-2xl font-bold text-gray-800">Tasks</h2>
+                    <p className="text-gray-500">Manage and monitor task execution</p>
                   </div>
                   <button 
                     onClick={() => setShowCreateTaskModal(true)}
@@ -1187,19 +1177,19 @@ const CrewAIDashboardProV9 = () => {
                 {/* Search and Filter */}
                 <div className="flex flex-col sm:flex-row gap-4">
                   <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
                       type="text"
                       placeholder="Search tasks..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                     />
                   </div>
                   <select
                     value={filterPriority}
                     onChange={(e) => setFilterPriority(e.target.value)}
-                    className="px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                   >
                     <option value="all">All Priorities</option>
                     <option value="urgent">Urgent</option>
@@ -1211,11 +1201,11 @@ const CrewAIDashboardProV9 = () => {
 
                 <div className="space-y-4">
                   {filteredTasks.map((task) => (
-                    <div key={task.id} className="bg-background border border-border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between mb-4">
+                    <div key={task.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between mb-4 gap-4">
                         <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <h3 className="font-semibold text-foreground">{task.name}</h3>
+                          <div className="flex items-center flex-wrap gap-x-3 gap-y-2 mb-2">
+                            <h3 className="font-semibold text-gray-800">{task.name}</h3>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(task.priority)}`}>
                               {task.priority}
                             </span>
@@ -1223,8 +1213,8 @@ const CrewAIDashboardProV9 = () => {
                               {task.status}
                             </span>
                           </div>
-                          <p className="text-sm text-muted-foreground mb-2">{task.description}</p>
-                          <div className="flex items-center space-x-4 text-xs text-muted-foreground">
+                          <p className="text-sm text-gray-500 mb-2">{task.description}</p>
+                          <div className="flex items-center space-x-4 text-xs text-gray-500">
                             <span>Agent: {task.agentName}</span>
                             <span>Due: {task.dueDate}</span>
                             <span>Format: {task.outputFormat}</span>
@@ -1233,30 +1223,30 @@ const CrewAIDashboardProV9 = () => {
                         <div className="flex space-x-2">
                           <button 
                             onClick={() => editTask(task)}
-                            className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                            className="bg-gray-100 text-gray-700 p-2 rounded-lg hover:bg-gray-200 transition-colors"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button 
                             onClick={() => playTask(task)}
-                            className="bg-green-100 text-green-700 px-3 py-2 rounded-lg hover:bg-green-200 transition-colors"
+                            className="bg-green-100 text-green-700 p-2 rounded-lg hover:bg-green-200 transition-colors"
                           >
                             <Play className="w-4 h-4" />
                           </button>
                           <button 
                             onClick={() => deleteTask(task.id)}
-                            className="bg-red-100 text-red-700 px-3 py-2 rounded-lg hover:bg-red-200 transition-colors"
+                            className="bg-red-100 text-red-700 p-2 rounded-lg hover:bg-red-200 transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
 
-                      {task.status === 'in-progress' && (
-                        <div className="mb-4">
+                      {(task.status === 'in-progress' || task.status === 'completed') && (
+                        <div>
                           <div className="flex items-center justify-between text-sm mb-1">
-                            <span className="text-muted-foreground">Progress</span>
-                            <span className="font-medium text-foreground">{task.progress}%</span>
+                            <span className="text-gray-500">Progress</span>
+                            <span className="font-medium text-gray-800">{task.progress}%</span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div 
@@ -1277,51 +1267,53 @@ const CrewAIDashboardProV9 = () => {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-foreground">Workflow Templates</h2>
-                    <p className="text-muted-foreground">Pre-built agent workflows for common use cases</p>
+                    <h2 className="text-2xl font-bold text-gray-800">Workflow Templates</h2>
+                    <p className="text-gray-500">Pre-built agent workflows for common use cases</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {templates.map((template) => (
-                    <div key={template.id} className="bg-background border border-border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <div className="flex items-center space-x-2 mb-2">
-                            <h3 className="font-semibold text-foreground">{template.name}</h3>
-                            {template.featured && (
-                              <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-3">{template.description}</p>
-                          <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                            <span>{template.agents} agents</span>
-                            <span>{template.tasks} tasks</span>
-                            <span>⭐ {template.rating}</span>
-                          </div>
+                    <div key={template.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col">
+                      <div className="flex-grow">
+                        <div className="flex items-start justify-between mb-4">
+                            <div>
+                            <div className="flex items-center space-x-2 mb-2">
+                                <h3 className="font-semibold text-gray-800">{template.name}</h3>
+                                {template.featured && (
+                                <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                                )}
+                            </div>
+                            <p className="text-sm text-gray-500 mb-3">{template.description}</p>
+                            <div className="flex items-center space-x-4 text-xs text-gray-500">
+                                <span>{template.agents} agents</span>
+                                <span>{template.tasks} tasks</span>
+                                <span>⭐ {template.rating}</span>
+                            </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 mb-4">
+                            <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-500">Category</span>
+                            <span className="font-medium text-gray-800">{template.category}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-500">Complexity</span>
+                            <span className="font-medium text-gray-800">{template.complexity}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-500">Est. Time</span>
+                            <span className="font-medium text-gray-800">{template.estimatedTime}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-500">Downloads</span>
+                            <span className="font-medium text-gray-800">{template.downloads.toLocaleString()}</span>
+                            </div>
                         </div>
                       </div>
 
-                      <div className="space-y-3 mb-4">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Category</span>
-                          <span className="font-medium text-foreground">{template.category}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Complexity</span>
-                          <span className="font-medium text-foreground">{template.complexity}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Est. Time</span>
-                          <span className="font-medium text-foreground">{template.estimatedTime}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Downloads</span>
-                          <span className="font-medium text-foreground">{template.downloads.toLocaleString()}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-2 mt-auto">
                         <button 
                           onClick={() => useTemplate(template)}
                           className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-1"
@@ -1329,7 +1321,7 @@ const CrewAIDashboardProV9 = () => {
                           <Download className="w-4 h-4" />
                           <span>Use Template</span>
                         </button>
-                        <button className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors">
+                        <button className="bg-gray-100 text-gray-700 p-2 rounded-lg hover:bg-gray-200 transition-colors">
                           <Eye className="w-4 h-4" />
                         </button>
                       </div>
@@ -1343,21 +1335,21 @@ const CrewAIDashboardProV9 = () => {
             {activeTab === 'crew-goal' && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-foreground">Crew Goal Assignment</h2>
-                  <p className="text-muted-foreground">Assign goals and topics for collaborative crew execution</p>
+                  <h2 className="text-2xl font-bold text-gray-800">Crew Goal Assignment</h2>
+                  <p className="text-gray-500">Assign goals and topics for collaborative crew execution</p>
                 </div>
 
-                <div className="bg-background border border-border rounded-lg p-6 shadow-sm">
+                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         Crew Topic / Main Instruction
                       </label>
                       <textarea
                         value={crewTopic}
                         onChange={(e) => setCrewTopic(e.target.value)}
                         placeholder="Enter the main topic or goal for the crew to work on..."
-                        className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                         rows={4}
                       />
                     </div>
@@ -1384,7 +1376,7 @@ const CrewAIDashboardProV9 = () => {
                       {isRunningCrew && (
                         <div className="flex items-center space-x-2">
                           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-sm text-gray-500">
                             Progress: {Math.round(crewProgress)}%
                           </span>
                         </div>
@@ -1404,7 +1396,7 @@ const CrewAIDashboardProV9 = () => {
 
                     {crewOutput && (
                       <div className="mt-6">
-                        <h3 className="text-lg font-semibold text-foreground mb-3">Crew Execution Output</h3>
+                        <h3 className="text-lg font-semibold text-gray-800 mb-3">Crew Execution Output</h3>
                         <div className="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-sm max-h-96 overflow-y-auto">
                           <pre className="whitespace-pre-wrap">{crewOutput}</pre>
                         </div>
@@ -1414,17 +1406,17 @@ const CrewAIDashboardProV9 = () => {
                 </div>
 
                 {/* Available Agents for Crew */}
-                <div className="bg-background border border-border rounded-lg p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-foreground mb-4">Available Agents for Crew</h3>
+                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Agents for Crew</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {agents.map((agent) => (
-                      <div key={agent.id} className="flex items-center space-x-3 p-3 border border-border rounded-lg">
+                      <div key={agent.id} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg">
                         <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                           <Bot className="w-4 h-4 text-blue-600" />
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-foreground text-sm">{agent.name}</p>
-                          <p className="text-xs text-muted-foreground">{agent.role}</p>
+                          <p className="font-medium text-gray-800 text-sm">{agent.name}</p>
+                          <p className="text-xs text-gray-500">{agent.role}</p>
                         </div>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(agent.status)}`}>
                           {agent.status}
@@ -1441,8 +1433,8 @@ const CrewAIDashboardProV9 = () => {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-foreground">Live Execution</h2>
-                    <p className="text-muted-foreground">Real-time AI workflow simulation and monitoring</p>
+                    <h2 className="text-2xl font-bold text-gray-800">Live Execution</h2>
+                    <p className="text-gray-500">Real-time AI workflow simulation and monitoring</p>
                   </div>
                   <div className="flex space-x-3">
                     <button 
@@ -1476,42 +1468,42 @@ const CrewAIDashboardProV9 = () => {
 
                 {/* Execution Metrics */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="bg-background border border-border rounded-lg p-4">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
                       <Activity className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm font-medium text-foreground">Status</span>
+                      <span className="text-sm font-medium text-gray-800">Status</span>
                     </div>
-                    <p className="text-lg font-bold text-foreground">
+                    <p className="text-lg font-bold text-gray-800">
                       {isExecuting ? 'Running' : 'Idle'}
                     </p>
                   </div>
 
-                  <div className="bg-background border border-border rounded-lg p-4">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
                       <Clock className="w-4 h-4 text-green-600" />
-                      <span className="text-sm font-medium text-foreground">Duration</span>
+                      <span className="text-sm font-medium text-gray-800">Duration</span>
                     </div>
-                    <p className="text-lg font-bold text-foreground">
+                    <p className="text-lg font-bold text-gray-800">
                       {isExecuting ? `${Math.round(executionProgress * 2.5 / 100)}m ${Math.round((executionProgress * 34) % 60)}s` : '0m 0s'}
                     </p>
                   </div>
 
-                  <div className="bg-background border border-border rounded-lg p-4">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
                       <Cpu className="w-4 h-4 text-purple-600" />
-                      <span className="text-sm font-medium text-foreground">Tokens Used</span>
+                      <span className="text-sm font-medium text-gray-800">Tokens Used</span>
                     </div>
-                    <p className="text-lg font-bold text-foreground">
+                    <p className="text-lg font-bold text-gray-800">
                       {isExecuting ? Math.round(executionProgress * 154).toLocaleString() : '0'}
                     </p>
                   </div>
 
-                  <div className="bg-background border border-border rounded-lg p-4">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
                       <DollarSign className="w-4 h-4 text-orange-600" />
-                      <span className="text-sm font-medium text-foreground">Cost</span>
+                      <span className="text-sm font-medium text-gray-800">Cost</span>
                     </div>
-                    <p className="text-lg font-bold text-foreground">
+                    <p className="text-lg font-bold text-gray-800">
                       ${isExecuting ? (executionProgress * 0.0245).toFixed(3) : '0.000'}
                     </p>
                   </div>
@@ -1519,10 +1511,10 @@ const CrewAIDashboardProV9 = () => {
 
                 {/* Progress Bar */}
                 {isExecuting && (
-                  <div className="bg-background border border-border rounded-lg p-6">
+                  <div className="bg-white border border-gray-200 rounded-lg p-6">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-foreground">Execution Progress</span>
-                      <span className="text-sm text-muted-foreground">{Math.round(executionProgress)}%</span>
+                      <span className="text-sm font-medium text-gray-800">Execution Progress</span>
+                      <span className="text-sm text-gray-500">{Math.round(executionProgress)}%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-3">
                       <div 
@@ -1534,13 +1526,13 @@ const CrewAIDashboardProV9 = () => {
                 )}
 
                 {/* Console Output */}
-                <div className="bg-background border border-border rounded-lg p-6">
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-foreground">Live Console Output</h3>
+                    <h3 className="text-lg font-semibold text-gray-800">Live Console Output</h3>
                     {isExecuting && (
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                        <span className="text-sm text-muted-foreground">Live</span>
+                        <span className="text-sm text-gray-500">Live</span>
                       </div>
                     )}
                   </div>
@@ -1560,8 +1552,8 @@ const CrewAIDashboardProV9 = () => {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-foreground">Analytics Dashboard</h2>
-                    <p className="text-muted-foreground">Performance insights and metrics</p>
+                    <h2 className="text-2xl font-bold text-gray-800">Analytics Dashboard</h2>
+                    <p className="text-gray-500">Performance insights and metrics</p>
                   </div>
                   <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2">
                     <Download className="w-4 h-4" />
@@ -1571,11 +1563,11 @@ const CrewAIDashboardProV9 = () => {
 
                 {/* Key Metrics */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="bg-background border border-border rounded-lg p-6">
+                  <div className="bg-white border border-gray-200 rounded-lg p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Total Executions</p>
-                        <p className="text-2xl font-bold text-foreground">1,247</p>
+                        <p className="text-sm text-gray-500">Total Executions</p>
+                        <p className="text-2xl font-bold text-gray-800">1,247</p>
                         <p className="text-xs text-green-600 flex items-center mt-1">
                           <TrendingUp className="w-3 h-3 mr-1" />
                           +12% this month
@@ -1587,11 +1579,11 @@ const CrewAIDashboardProV9 = () => {
                     </div>
                   </div>
 
-                  <div className="bg-background border border-border rounded-lg p-6">
+                  <div className="bg-white border border-gray-200 rounded-lg p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Success Rate</p>
-                        <p className="text-2xl font-bold text-foreground">{realTimeMetrics.successRate.toFixed(1)}%</p>
+                        <p className="text-sm text-gray-500">Success Rate</p>
+                        <p className="text-2xl font-bold text-gray-800">{realTimeMetrics.successRate.toFixed(1)}%</p>
                         <p className="text-xs text-green-600 flex items-center mt-1">
                           <ArrowUp className="w-3 h-3 mr-1" />
                           +2.3% this week
@@ -1603,11 +1595,11 @@ const CrewAIDashboardProV9 = () => {
                     </div>
                   </div>
 
-                  <div className="bg-background border border-border rounded-lg p-6">
+                  <div className="bg-white border border-gray-200 rounded-lg p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Avg Response Time</p>
-                        <p className="text-2xl font-bold text-foreground">{realTimeMetrics.avgResponseTime}</p>
+                        <p className="text-sm text-gray-500">Avg Response Time</p>
+                        <p className="text-2xl font-bold text-gray-800">{realTimeMetrics.avgResponseTime}</p>
                         <p className="text-xs text-orange-600 flex items-center mt-1">
                           <TrendingDown className="w-3 h-3 mr-1" />
                           -0.2s improved
@@ -1619,11 +1611,11 @@ const CrewAIDashboardProV9 = () => {
                     </div>
                   </div>
 
-                  <div className="bg-background border border-border rounded-lg p-6">
+                  <div className="bg-white border border-gray-200 rounded-lg p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Total Cost</p>
-                        <p className="text-2xl font-bold text-foreground">${realTimeMetrics.costToday.toFixed(2)}</p>
+                        <p className="text-sm text-gray-500">Total Cost</p>
+                        <p className="text-2xl font-bold text-gray-800">${realTimeMetrics.costToday.toFixed(2)}</p>
                         <p className="text-xs text-blue-600 flex items-center mt-1">
                           <DollarSign className="w-3 h-3 mr-1" />
                           Today's usage
@@ -1637,24 +1629,24 @@ const CrewAIDashboardProV9 = () => {
                 </div>
 
                 {/* Agent Performance */}
-                <div className="bg-background border border-border rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-foreground mb-4">Agent Performance Breakdown</h3>
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Agent Performance Breakdown</h3>
                   <div className="space-y-4">
                     {agents.map((agent) => (
-                      <div key={agent.id} className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                      <div key={agent.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                         <div className="flex items-center space-x-3">
                           <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                             <Bot className="w-4 h-4 text-blue-600" />
                           </div>
                           <div>
-                            <p className="font-medium text-foreground">{agent.name}</p>
-                            <p className="text-sm text-muted-foreground">{agent.tasks} tasks completed</p>
+                            <p className="font-medium text-gray-800">{agent.name}</p>
+                            <p className="text-sm text-gray-500">{agent.tasks} tasks completed</p>
                           </div>
                         </div>
                         <div className="flex items-center space-x-4">
                           <div className="text-right">
-                            <p className="text-sm font-medium text-foreground">{agent.score}%</p>
-                            <p className="text-xs text-muted-foreground">Success Rate</p>
+                            <p className="text-sm font-medium text-gray-800">{agent.score}%</p>
+                            <p className="text-xs text-gray-500">Success Rate</p>
                           </div>
                           <div className="w-20 bg-gray-200 rounded-full h-2">
                             <div 
@@ -1669,20 +1661,20 @@ const CrewAIDashboardProV9 = () => {
                 </div>
 
                 {/* Cost Analysis */}
-                <div className="bg-background border border-border rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-foreground mb-4">Cost Analysis</h3>
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Cost Analysis</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-muted rounded-lg">
-                      <p className="text-2xl font-bold text-foreground">${realTimeMetrics.costToday.toFixed(2)}</p>
-                      <p className="text-sm text-muted-foreground">Today</p>
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <p className="text-2xl font-bold text-gray-800">${realTimeMetrics.costToday.toFixed(2)}</p>
+                      <p className="text-sm text-gray-500">Today</p>
                     </div>
-                    <div className="text-center p-4 bg-muted rounded-lg">
-                      <p className="text-2xl font-bold text-foreground">${(realTimeMetrics.costToday * 7).toFixed(2)}</p>
-                      <p className="text-sm text-muted-foreground">This Week</p>
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <p className="text-2xl font-bold text-gray-800">${(realTimeMetrics.costToday * 7).toFixed(2)}</p>
+                      <p className="text-sm text-gray-500">This Week</p>
                     </div>
-                    <div className="text-center p-4 bg-muted rounded-lg">
-                      <p className="text-2xl font-bold text-foreground">${(realTimeMetrics.costToday * 30).toFixed(2)}</p>
-                      <p className="text-sm text-muted-foreground">This Month</p>
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <p className="text-2xl font-bold text-gray-800">${(realTimeMetrics.costToday * 30).toFixed(2)}</p>
+                      <p className="text-sm text-gray-500">This Month</p>
                     </div>
                   </div>
                 </div>
@@ -1694,8 +1686,8 @@ const CrewAIDashboardProV9 = () => {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-foreground">Generated Files</h2>
-                    <p className="text-muted-foreground">Manage and download generated reports and outputs</p>
+                    <h2 className="text-2xl font-bold text-gray-800">Generated Files</h2>
+                    <p className="text-gray-500">Manage and download generated reports and outputs</p>
                   </div>
                   <button 
                     onClick={exportAllFiles}
@@ -1708,40 +1700,42 @@ const CrewAIDashboardProV9 = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {files.map((file) => (
-                    <div key={file.id} className="bg-background border border-border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                            {file.type === 'report' && <FileText className="w-6 h-6 text-blue-600" />}
-                            {file.type === 'data' && <Database className="w-6 h-6 text-green-600" />}
-                            {file.type === 'strategy' && <Target className="w-6 h-6 text-purple-600" />}
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-foreground text-sm">{file.name}</h3>
-                            <p className="text-xs text-muted-foreground">{file.size}</p>
-                          </div>
+                    <div key={file.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col">
+                      <div className="flex-grow">
+                        <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center space-x-3">
+                            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                {file.type === 'report' && <FileText className="w-6 h-6 text-blue-600" />}
+                                {file.type === 'data' && <Database className="w-6 h-6 text-green-600" />}
+                                {file.type === 'strategy' && <Target className="w-6 h-6 text-purple-600" />}
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-gray-800 text-sm break-all">{file.name}</h3>
+                                <p className="text-xs text-gray-500">{file.size}</p>
+                            </div>
+                            </div>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(file.status)}`}>
+                            {file.status}
+                            </span>
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(file.status)}`}>
-                          {file.status}
-                        </span>
+
+                        <div className="space-y-2 mb-4 text-sm">
+                            <div className="flex justify-between">
+                            <span className="text-gray-500">Agent:</span>
+                            <span className="text-gray-800">{file.agent}</span>
+                            </div>
+                            <div className="flex justify-between">
+                            <span className="text-gray-500">Created:</span>
+                            <span className="text-gray-800">{file.createdAt}</span>
+                            </div>
+                            <div className="flex justify-between">
+                            <span className="text-gray-500">Downloads:</span>
+                            <span className="text-gray-800">{file.downloads}</span>
+                            </div>
+                        </div>
                       </div>
 
-                      <div className="space-y-2 mb-4 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Agent:</span>
-                          <span className="text-foreground">{file.agent}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Created:</span>
-                          <span className="text-foreground">{file.createdAt}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Downloads:</span>
-                          <span className="text-foreground">{file.downloads}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-2 mt-auto">
                         <button 
                           onClick={() => previewFile(file)}
                           className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center space-x-1"
@@ -1756,12 +1750,143 @@ const CrewAIDashboardProV9 = () => {
                           <Download className="w-4 h-4" />
                           <span>Download</span>
                         </button>
+                         <button 
+                          onClick={() => deleteFile(file.id)}
+                          className="bg-red-100 text-red-700 p-2 rounded-lg hover:bg-red-200 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
+            
+            {/* Profile Tab */}
+            {activeTab === 'profile' && (
+                <div className="space-y-8">
+                    <div>
+                        <h2 className="text-3xl font-bold text-gray-800">Profile & Settings</h2>
+                        <p className="text-gray-500 mt-1">Manage your profile, preferences, and API keys.</p>
+                    </div>
+
+                    {/* Profile Settings */}
+                    <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-8">
+                        <h3 className="text-xl font-semibold text-gray-800 mb-6">Profile Settings</h3>
+                        <div className="flex items-center space-x-6">
+                            <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="User Avatar" className="w-24 h-24 rounded-full"/>
+                            <div className="space-y-2">
+                                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">Upload New Photo</button>
+                                <p className="text-xs text-gray-500">Allowed JPG, GIF or PNG. Max size of 800K</p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                                <input type="text" defaultValue="Admin User" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"/>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                                <input type="email" defaultValue="admin@crewai.com" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"/>
+                            </div>
+                        </div>
+                         <div className="mt-6 flex justify-end">
+                            <button className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700">Save Changes</button>
+                        </div>
+                    </div>
+                    
+                    {/* User Preferences */}
+                    <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-8">
+                        <h3 className="text-xl font-semibold text-gray-800 mb-6">User Preferences</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Theme</label>
+                                <select className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-lg bg-white">
+                                    <option>Light Mode</option>
+                                    <option>Dark Mode</option>
+                                    <option>System Default</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Email Notifications</label>
+                                <div className="flex items-center space-x-4">
+                                    <label className="flex items-center space-x-2">
+                                        <input type="checkbox" className="h-4 w-4 text-blue-600 border-gray-300 rounded" defaultChecked/>
+                                        <span>Task Completions</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2">
+                                        <input type="checkbox" className="h-4 w-4 text-blue-600 border-gray-300 rounded" defaultChecked/>
+                                        <span>Weekly Summaries</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2">
+                                        <input type="checkbox" className="h-4 w-4 text-blue-600 border-gray-300 rounded"/>
+                                        <span>Marketing Updates</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                         <div className="mt-6 flex justify-end">
+                            <button className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700">Save Preferences</button>
+                        </div>
+                    </div>
+
+                    {/* API Key Management */}
+                    <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-8">
+                        <h3 className="text-xl font-semibold text-gray-800 mb-6">API Key Management</h3>
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div className="flex items-center space-x-3">
+                                    <Key className="w-5 h-5 text-gray-500"/>
+                                    <span className="font-mono text-sm">CerebrasAI_Key: sk-******************...</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <button className="text-gray-500 hover:text-gray-800"><Copy className="w-4 h-4"/></button>
+                                    <button className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4"/></button>
+                                </div>
+                            </div>
+                             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div className="flex items-center space-x-3">
+                                    <Key className="w-5 h-5 text-gray-500"/>
+                                    <span className="font-mono text-sm">OpenAI_Key: sk-******************...</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <button className="text-gray-500 hover:text-gray-800"><Copy className="w-4 h-4"/></button>
+                                    <button className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4"/></button>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-6">
+                            <button className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 flex items-center space-x-2">
+                                <Plus className="w-4 h-4"/>
+                                <span>Generate New API Key</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* General Settings Panel */}
+                     <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-8">
+                        <h3 className="text-xl font-semibold text-gray-800 mb-6">General Settings</h3>
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h4 className="font-medium">Two-Factor Authentication (2FA)</h4>
+                                    <p className="text-sm text-gray-500">Enhance your account security.</p>
+                                </div>
+                                <button className="bg-gray-200 text-gray-800 px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-300">Enable</button>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h4 className="font-medium">Delete Account</h4>
+                                    <p className="text-sm text-gray-500">Permanently delete your account and all associated data.</p>
+                                </div>
+                                <button className="bg-red-100 text-red-700 px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-red-200">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
 
           </div>
         </div>
@@ -1772,13 +1897,13 @@ const CrewAIDashboardProV9 = () => {
       {/* Create Agent Modal */}
       {showCreateAgentModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-border">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-foreground">Create New Agent</h3>
+                <h3 className="text-lg font-semibold text-gray-800">Create New Agent</h3>
                 <button 
                   onClick={() => setShowCreateAgentModal(false)}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="text-gray-500 hover:text-gray-800"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1786,51 +1911,51 @@ const CrewAIDashboardProV9 = () => {
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Agent Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Agent Name *</label>
                 <input
                   type="text"
                   value={newAgent.name}
                   onChange={(e) => setNewAgent(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                   placeholder="e.g., Senior Marketing Analyst"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Role *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Role *</label>
                 <input
                   type="text"
                   value={newAgent.role}
                   onChange={(e) => setNewAgent(prev => ({ ...prev, role: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                   placeholder="e.g., Market Research Specialist"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Goal *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Goal *</label>
                 <textarea
                   value={newAgent.goal}
                   onChange={(e) => setNewAgent(prev => ({ ...prev, goal: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                   rows={3}
                   placeholder="What is this agent's primary objective?"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Backstory *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Backstory *</label>
                 <textarea
                   value={newAgent.backstory}
                   onChange={(e) => setNewAgent(prev => ({ ...prev, backstory: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                   rows={3}
                   placeholder="Agent's background and expertise"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Cerebras Model</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Cerebras Model</label>
                 <select
                   value={newAgent.model}
                   onChange={(e) => setNewAgent(prev => ({ ...prev, model: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                 >
                   {cerebrasModels.map((model) => (
                     <option key={model.id} value={model.id}>
@@ -1841,7 +1966,7 @@ const CrewAIDashboardProV9 = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Temperature</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Temperature</label>
                   <input
                     type="range"
                     min="0"
@@ -1850,25 +1975,25 @@ const CrewAIDashboardProV9 = () => {
                     onChange={(e) => setNewAgent(prev => ({ ...prev, temperature: parseInt(e.target.value) }))}
                     className="w-full"
                   />
-                  <div className="text-sm text-muted-foreground text-center">{newAgent.temperature}%</div>
+                  <div className="text-sm text-gray-500 text-center">{newAgent.temperature}%</div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Max Iterations</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Max Iterations</label>
                   <input
                     type="number"
                     min="1"
                     max="50"
                     value={newAgent.maxIterations}
                     onChange={(e) => setNewAgent(prev => ({ ...prev, maxIterations: parseInt(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                   />
                 </div>
               </div>
             </div>
-            <div className="p-6 border-t border-border flex justify-end space-x-3">
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
               <button 
                 onClick={() => setShowCreateAgentModal(false)}
-                className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
@@ -1886,13 +2011,13 @@ const CrewAIDashboardProV9 = () => {
       {/* Edit Agent Modal */}
       {showEditAgentModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-border">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-foreground">Edit Agent</h3>
+                <h3 className="text-lg font-semibold text-gray-800">Edit Agent</h3>
                 <button 
                   onClick={() => setShowEditAgentModal(false)}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="text-gray-500 hover:text-gray-800"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1900,46 +2025,46 @@ const CrewAIDashboardProV9 = () => {
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Agent Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Agent Name *</label>
                 <input
                   type="text"
                   value={newAgent.name}
                   onChange={(e) => setNewAgent(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Role *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Role *</label>
                 <input
                   type="text"
                   value={newAgent.role}
                   onChange={(e) => setNewAgent(prev => ({ ...prev, role: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Goal *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Goal *</label>
                 <textarea
                   value={newAgent.goal}
                   onChange={(e) => setNewAgent(prev => ({ ...prev, goal: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                   rows={3}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Backstory *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Backstory *</label>
                 <textarea
                   value={newAgent.backstory}
                   onChange={(e) => setNewAgent(prev => ({ ...prev, backstory: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                   rows={3}
                 />
               </div>
             </div>
-            <div className="p-6 border-t border-border flex justify-end space-x-3">
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
               <button 
                 onClick={() => setShowEditAgentModal(false)}
-                className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
@@ -1957,13 +2082,13 @@ const CrewAIDashboardProV9 = () => {
       {/* Create Task Modal */}
       {showCreateTaskModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-border">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-foreground">Create New Task</h3>
+                <h3 className="text-lg font-semibold text-gray-800">Create New Task</h3>
                 <button 
                   onClick={() => setShowCreateTaskModal(false)}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="text-gray-500 hover:text-gray-800"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1971,41 +2096,41 @@ const CrewAIDashboardProV9 = () => {
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Task Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Task Name *</label>
                 <input
                   type="text"
                   value={newTask.name}
                   onChange={(e) => setNewTask(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                   placeholder="e.g., Market Analysis Report"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Description *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
                 <textarea
                   value={newTask.description}
                   onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                   rows={3}
                   placeholder="Detailed description of the task"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Expected Output *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Expected Output *</label>
                 <textarea
                   value={newTask.expectedOutput}
                   onChange={(e) => setNewTask(prev => ({ ...prev, expectedOutput: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                   rows={3}
                   placeholder="What should the output look like?"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Assign to Agent *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Assign to Agent *</label>
                 <select
                   value={newTask.agentId}
                   onChange={(e) => setNewTask(prev => ({ ...prev, agentId: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                 >
                   <option value="">Select an agent</option>
                   {agents.map((agent) => (
@@ -2017,11 +2142,11 @@ const CrewAIDashboardProV9 = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Priority</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
                   <select
                     value={newTask.priority}
                     onChange={(e) => setNewTask(prev => ({ ...prev, priority: e.target.value }))}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -2030,11 +2155,11 @@ const CrewAIDashboardProV9 = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Output Format</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Output Format</label>
                   <select
                     value={newTask.outputFormat}
                     onChange={(e) => setNewTask(prev => ({ ...prev, outputFormat: e.target.value }))}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                   >
                     <option value="text">Text</option>
                     <option value="markdown">Markdown</option>
@@ -2045,19 +2170,19 @@ const CrewAIDashboardProV9 = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Due Date</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
                 <input
                   type="date"
                   value={newTask.dueDate}
                   onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                 />
               </div>
             </div>
-            <div className="p-6 border-t border-border flex justify-end space-x-3">
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
               <button 
                 onClick={() => setShowCreateTaskModal(false)}
-                className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
@@ -2075,13 +2200,13 @@ const CrewAIDashboardProV9 = () => {
       {/* Edit Task Modal */}
       {showEditTaskModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-border">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-foreground">Edit Task</h3>
+                <h3 className="text-lg font-semibold text-gray-800">Edit Task</h3>
                 <button 
                   onClick={() => setShowEditTaskModal(false)}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="text-gray-500 hover:text-gray-800"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -2089,38 +2214,38 @@ const CrewAIDashboardProV9 = () => {
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Task Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Task Name *</label>
                 <input
                   type="text"
                   value={newTask.name}
                   onChange={(e) => setNewTask(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Description *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
                 <textarea
                   value={newTask.description}
                   onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                   rows={3}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Expected Output *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Expected Output *</label>
                 <textarea
                   value={newTask.expectedOutput}
                   onChange={(e) => setNewTask(prev => ({ ...prev, expectedOutput: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                   rows={3}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Assign to Agent *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Assign to Agent *</label>
                 <select
                   value={newTask.agentId}
                   onChange={(e) => setNewTask(prev => ({ ...prev, agentId: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-background text-foreground"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-800"
                 >
                   {agents.map((agent) => (
                     <option key={agent.id} value={agent.id}>
@@ -2130,10 +2255,10 @@ const CrewAIDashboardProV9 = () => {
                 </select>
               </div>
             </div>
-            <div className="p-6 border-t border-border flex justify-end space-x-3">
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
               <button 
                 onClick={() => setShowEditTaskModal(false)}
-                className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
@@ -2151,45 +2276,45 @@ const CrewAIDashboardProV9 = () => {
       {/* File Preview Modal */}
       {showFilePreview && selectedFile && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-border">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-foreground">{selectedFile.name}</h3>
+                <h3 className="text-lg font-semibold text-gray-800">{selectedFile.name}</h3>
                 <button 
                   onClick={() => setShowFilePreview(false)}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="text-gray-500 hover:text-gray-800"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
-            <div className="p-6">
+            <div className="p-6 overflow-y-auto flex-grow">
               <div className="space-y-4 mb-6">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-muted-foreground">Size:</span>
-                    <span className="ml-2 text-foreground">{selectedFile.size}</span>
+                    <span className="text-gray-500">Size:</span>
+                    <span className="ml-2 text-gray-800">{selectedFile.size}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Type:</span>
-                    <span className="ml-2 text-foreground">{selectedFile.type}</span>
+                    <span className="text-gray-500">Type:</span>
+                    <span className="ml-2 text-gray-800">{selectedFile.type}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Agent:</span>
-                    <span className="ml-2 text-foreground">{selectedFile.agent}</span>
+                    <span className="text-gray-500">Agent:</span>
+                    <span className="ml-2 text-gray-800">{selectedFile.agent}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Created:</span>
-                    <span className="ml-2 text-foreground">{selectedFile.createdAt}</span>
+                    <span className="text-gray-500">Created:</span>
+                    <span className="ml-2 text-gray-800">{selectedFile.createdAt}</span>
                   </div>
                 </div>
               </div>
-              <div className="bg-muted p-4 rounded-lg">
-                <h4 className="font-medium text-foreground mb-2">Content Preview</h4>
-                <p className="text-sm text-foreground">{selectedFile.content}</p>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium text-gray-800 mb-2">Content Preview</h4>
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">{selectedFile.content}</p>
               </div>
             </div>
-            <div className="p-6 border-t border-border flex justify-end space-x-3">
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
               <button 
                 onClick={() => downloadFile(selectedFile)}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
@@ -2201,8 +2326,16 @@ const CrewAIDashboardProV9 = () => {
           </div>
         </div>
       )}
+
+      {/* Confirmation Popup */}
+      {showConfirmation && (
+        <div className="fixed bottom-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 animate-bounce">
+          <CheckCircle className="w-5 h-5" />
+          <span>{confirmationMessage}</span>
+        </div>
+      )}
     </div>
   );
 };
 
-export default CrewAIDashboardProV9;
+export default CrewAIDashboardProV10;
